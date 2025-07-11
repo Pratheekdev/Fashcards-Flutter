@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flip_card/flip_card.dart'; // Import the FlipCard package
+import 'package:flip_card/flip_card.dart';
 
 class FlashcardViewer extends StatefulWidget {
   final String deckId;
@@ -14,9 +14,6 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
   int currentIndex = 0;
   List cards = [];
   bool _isLoading = true;
-  
-  // Use GlobalKey<FlipCardState> to control the FlipCard.
-  // This is the correct way to interact with the FlipCard's state programmatically.
   GlobalKey<FlipCardState> cardKey = GlobalKey<FlipCardState>();
 
   @override
@@ -33,7 +30,7 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
           .get();
       setState(() {
         cards = List.from(doc['cards']);
-        cards.shuffle(); // Shuffle cards once loaded
+        cards.shuffle();
         _isLoading = false;
       });
     } catch (e) {
@@ -42,10 +39,6 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
         SnackBar(
           content: Text("Failed to load deck"),
           backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
         ),
       );
     }
@@ -56,10 +49,6 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
       SnackBar(
         content: Text("Marked as known"),
         backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
       ),
     );
     nextCard();
@@ -70,10 +59,6 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
       SnackBar(
         content: Text("Marked as unknown"),
         backgroundColor: Colors.orange,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
       ),
     );
     nextCard();
@@ -82,12 +67,59 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
   void nextCard() {
     setState(() {
       currentIndex = (currentIndex + 1) % cards.length;
-      // After moving to the next card, ensure the FlipCard is showing its front.
-      // We check if it's currently showing the back and then toggle it.
       if (cardKey.currentState != null && !cardKey.currentState!.isFront) {
         cardKey.currentState!.toggleCard();
       }
     });
+  }
+
+  void _confirmDeleteDeck() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Delete Deck"),
+        content: Text("Are you sure you want to delete this deck?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: _deleteDeck,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: Text("Delete"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteDeck() async {
+    Navigator.of(context).pop(); // Close dialog
+    try {
+      await FirebaseFirestore.instance
+          .collection('decks')
+          .doc(widget.deckId)
+          .delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Deck deleted successfully"),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pop(); // Go back after deletion
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to delete deck"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -96,14 +128,17 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
       appBar: AppBar(
         title: Text(
           "Flashcards",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white),
         ),
         backgroundColor: Color(0xFF00796B),
-        elevation: 0,
         iconTheme: IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete),
+            tooltip: 'Delete Deck',
+            onPressed: _confirmDeleteDeck,
+          ),
+        ],
       ),
       body: _isLoading
           ? Center(
@@ -116,18 +151,13 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.warning,
-                        size: 60,
-                        color: Colors.grey.shade400,
-                      ),
+                      Icon(Icons.warning,
+                          size: 60, color: Colors.grey.shade400),
                       SizedBox(height: 16),
                       Text(
                         'No cards in this deck',
                         style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey.shade600,
-                        ),
+                            fontSize: 18, color: Colors.grey.shade600),
                       ),
                     ],
                   ),
@@ -136,7 +166,6 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Card Counter
                       Text(
                         '${currentIndex + 1}/${cards.length}',
                         style: TextStyle(
@@ -145,13 +174,9 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                         ),
                       ),
                       SizedBox(height: 20),
-
-                      // Flashcard with Flip Animation
                       FlipCard(
-                        key: cardKey, // Assign the key here
-                        direction: FlipDirection.HORIZONTAL, // or VERTICAL
-                        // When the card is built with a new currentIndex, it defaults to the front.
-                        // The toggleCard() in nextCard() ensures it's always front-facing.
+                        key: cardKey,
+                        direction: FlipDirection.HORIZONTAL,
                         front: Card(
                           margin: EdgeInsets.symmetric(horizontal: 24),
                           shape: RoundedRectangleBorder(
@@ -159,10 +184,8 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                           ),
                           elevation: 4,
                           child: Container(
-                            width: double.infinity,
-                            constraints: BoxConstraints(minHeight: 180), // Added minHeight for consistent size
                             padding: EdgeInsets.all(32),
-                            alignment: Alignment.center, // Center text vertically and horizontally
+                            alignment: Alignment.center,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -176,7 +199,6 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                                   textAlign: TextAlign.center,
                                 ),
                                 SizedBox(height: 24),
-                                // This text is optional, but helps guide the user
                                 Text(
                                   'Tap to reveal answer',
                                   style: TextStyle(
@@ -195,10 +217,8 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                           ),
                           elevation: 4,
                           child: Container(
-                            width: double.infinity,
-                            constraints: BoxConstraints(minHeight: 180), // Added minHeight for consistent size
                             padding: EdgeInsets.all(32),
-                            alignment: Alignment.center, // Center text vertically and horizontally
+                            alignment: Alignment.center,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -216,45 +236,33 @@ class _FlashcardViewerState extends State<FlashcardViewer> {
                         ),
                       ),
                       SizedBox(height: 40),
-
-                      // Buttons
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           ElevatedButton.icon(
                             icon: Icon(Icons.clear, color: Colors.white),
-                            label: Text(
-                              "Unknown",
-                              style: TextStyle(color: Colors.white),
-                            ),
+                            label: Text("Unknown"),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.orange,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               padding: EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
+                                  horizontal: 20, vertical: 16),
                             ),
                             onPressed: markAsUnknown,
                           ),
                           SizedBox(width: 20),
                           ElevatedButton.icon(
                             icon: Icon(Icons.check, color: Colors.white),
-                            label: Text(
-                              "Known",
-                              style: TextStyle(color: Colors.white),
-                            ),
+                            label: Text("Known"),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF00796B), // Changed to match app bar color for "Known"
+                              backgroundColor: Color(0xFF00796B),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               padding: EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
+                                  horizontal: 20, vertical: 16),
                             ),
                             onPressed: markAsKnown,
                           ),
